@@ -1,83 +1,60 @@
-#include <pthread.h>
-#include <semaphore.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-
-#define MaxItems 5 // Maximum items a producer can produce or a consumer can consume
-#define BufferSize 5 // Size of the buffer
-
-sem_t empty;
-sem_t full;
-int in = 0;
-int out = 0;
-int item=0;
-int buffer[BufferSize];
-
-void *producer(void *pno)
-{   
-    if(in==BufferSize-1)
-    {
-        printf("Producer Stack is full \n");
+#include<semaphore.h>
+//#include<pthread.h>
+#include "semaphore.h"
+//const int max=15;
+int m_arr[10];
+int m_top=-1;
+sem_t s1;
+sem_t s2;
+//pthread_mutex_t m1=PTHREAD_MUTEX_INITIALIZER;
+void* push(void* pv)	//consumer
+{
+    int val=(int*)pv;
+	sem_wait(&s1);
+  // pthread_mutex_lock(&m1);
+	if(m_top<=10){
+        m_arr[++m_top]=val;
+         printf("push val:%d\n",val);
     }
-    else
-    {
-     for(int i = 0; i < MaxItems; i++) {
-        item = rand(); // Produce a random item
-        sem_wait(&empty);
-        /* put value item into the buffer */
-        buffer[in] = item;
-        printf("Producer %d: Insert Item %d at %d\n", *((int *)pno),buffer[in],in);
-        in = (in + 1) % BufferSize;     
-        sem_post(&full);
-     }
-    }
+    //pthread_mutex_unlock(&m1);
+    sem_post(&s1);
+   sem_post(&s2);
+   
 }
-void *consumer(void *cno)
-{   
-    if(out==BufferSize-1)
-    {
-        printf("Consumer Stack is full\n");
+void* pop(void* pv)	//producer
+{
+    int temp=0;
+   sem_wait(&s2);
+    sem_wait(&s1);
+    //pthread_mutex_lock(&m1);
+	if(m_top!=-1){
+        //temp+=1;
+        temp=m_arr[m_top--];
+        printf("Value:%d\n",temp);
     }
-    else
-    {
-     int item=0;
-     for(int i = 0; i < MaxItems; i++) {
-        sem_wait(&full);
-        /* take one unit of data from the buffer */
-        item = buffer[out];
-        printf("Consumer %d: Remove Item %d from %d\n",*((int *)cno),item, out); 
-        out = (out + 1) % BufferSize;     
-        sem_post(&empty);
-     }
-    }
+   //pthread_mutex_unlock(&m1);
+    sem_post(&s1);
+	pthread_exit(temp);
 }
-
 int main()
-{   
-
-    pthread_t pro[5],con[5];
-    sem_init(&empty,0,BufferSize);
-    sem_init(&full,0,0);
-
-    int a[5] = {1,2,3,4,5}; //Just used for numbering the producer and consumer
-
-    for(int i = 0; i < 5; i++) {
-        pthread_create(&pro[i], NULL, (void *)producer, (void *)&a[i]);
+{
+    int i,value;
+	pthread_t pt1,pt2;	//thread handle
+    sem_init(&s2,0,0);
+    sem_init(&s1,0,0);
+    for(i=0;i<10;i++){
+           pthread_create(&pt1,NULL,push,(void*)i);
     }
-    for(int i = 0; i < 5; i++) {
-        pthread_create(&con[i], NULL, (void *)consumer, (void *)&a[i]);
-    }
-
-    for(int i = 0; i < 5; i++) {
-        pthread_join(pro[i], NULL);
-    }
-    for(int i = 0; i < 5; i++) {
-        pthread_join(con[i], NULL);
-    }
-
-    sem_destroy(&empty);
-    sem_destroy(&full);
-
-    return 0;
+	 for(i=0;i<10;i++){ 	
+         pthread_create(&pt2,NULL,pop,NULL);
+     }
+	for(i=0;i<10;i++)
+	pthread_join(pt1,NULL);
+	for(i=0;i<10;i++)
+	pthread_join(pt2, NULL );
+   sem_destroy(&s1);
+	sem_destroy(&s2);
+   // pthread_mutex_destroy(&m1);
+	//printf("Value:%d",value);
+	return 0;
 }
